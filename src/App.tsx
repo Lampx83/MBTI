@@ -10,13 +10,13 @@ const totalQuestions = MBTI_QUESTIONS.length;
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "https://mbti-career-neu.vercel.app").replace(/\/$/, "");
 const BULLET_SECTION_KEYS = new Set(["diem_manh", "diem_yeu", "moi_truong"]);
 const QUIZ_SCALE_OPTIONS = [
-  { value: 7, size: 38, color: "#059669", glow: "rgba(5, 150, 105, 0.24)", label: "Hoàn toàn đồng ý" },
-  { value: 6, size: 32, color: "#10b981", glow: "rgba(16, 185, 129, 0.22)", label: "Rất đồng ý" },
-  { value: 5, size: 26, color: "#6ee7b7", glow: "rgba(110, 231, 183, 0.2)", label: "Đồng ý" },
-  { value: 4, size: 20, color: "#94a3b8", glow: "rgba(148, 163, 184, 0.2)", label: "Trung lập" },
-  { value: 3, size: 26, color: "#c4b5fd", glow: "rgba(196, 181, 253, 0.22)", label: "Không đồng ý" },
-  { value: 2, size: 32, color: "#a78bfa", glow: "rgba(167, 139, 250, 0.24)", label: "Rất không đồng ý" },
   { value: 1, size: 38, color: "#8b5cf6", glow: "rgba(139, 92, 246, 0.24)", label: "Hoàn toàn không đồng ý" },
+  { value: 2, size: 32, color: "#a78bfa", glow: "rgba(167, 139, 250, 0.24)", label: "Rất không đồng ý" },
+  { value: 3, size: 26, color: "#c4b5fd", glow: "rgba(196, 181, 253, 0.22)", label: "Không đồng ý" },
+  { value: 4, size: 20, color: "#94a3b8", glow: "rgba(148, 163, 184, 0.2)", label: "Trung lập" },
+  { value: 5, size: 26, color: "#6ee7b7", glow: "rgba(110, 231, 183, 0.2)", label: "Đồng ý" },
+  { value: 6, size: 32, color: "#10b981", glow: "rgba(16, 185, 129, 0.22)", label: "Rất đồng ý" },
+  { value: 7, size: 38, color: "#059669", glow: "rgba(5, 150, 105, 0.24)", label: "Hoàn toàn đồng ý" },
 ] as const;
 
 export default function App() {
@@ -261,8 +261,8 @@ function Quiz({
 
               <div className="mt-5 rounded-lg bg-slate-50 px-4 py-4 ring-1 ring-slate-200 sm:px-5" style={{ overflow: "visible" }}>
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] sm:text-xs">
-                  <span className="text-emerald-700">Đồng ý</span>
                   <span className="text-violet-700">Không đồng ý</span>
+                  <span className="text-emerald-700">Đồng ý</span>
                 </div>
                 <div
                   role="radiogroup"
