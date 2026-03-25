@@ -1,8 +1,4 @@
-﻿/**
- * Express app (API only) for MBTI-Career-NEU
- * This file is used by both local server and Vercel serverless.
- */
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import * as Minio from "minio";
@@ -13,7 +9,7 @@ dotenv.config();
 
 const app = express();
 
-/* ------------------------------- Middleware ------------------------------ */
+
 app.use(cors());
 app.use(express.json());
 
@@ -24,7 +20,7 @@ const MBTI_TYPES = [
   "ISTP", "ISFP", "ESTP", "ESFP",
 ];
 
-/* ------------------------------ MinIO Client ----------------------------- */
+
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "203.113.132.48";
 const MINIO_PORT = parseInt(process.env.MINIO_PORT || "8008", 10);
 const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "course2";
@@ -45,7 +41,7 @@ const openaiClient = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-/** Read stream to Buffer (for .docx) */
+
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -133,9 +129,22 @@ const SECTION_DEFS = [
       "Ý NGHĨA CÁC CHIỀU TÍNH CÁCH", "Y NGHIA CAC CHIEU TINH CACH",
     ],
   },
-  { key: "diem_manh", labels: ["ĐIỂM MẠNH", "DIEM MANH", "UU DIEM"] },
-  { key: "diem_yeu", labels: ["ĐIỂM YẾU", "DIEM YEU", "HẠN CHẾ", "HAN CHE", "NHUOC DIEM"] },
-  { key: "moi_truong", labels: ["MÔI TRƯỜNG", "MOI TRUONG", "MOI TRUONG LAM VIEC PHU HOP"] },
+  { key: "diem_manh", labels: [
+    "ĐIỂM MẠNH", "DIEM MANH", "ƯU ĐIỂM", "UU DIEM",
+    "ĐIỂM MẠNH NỔI BẬT", "DIEM MANH NOI BAT",
+    "3. ĐIỂM MẠNH", "3 DIEM MANH",
+  ] },
+  { key: "diem_yeu", labels: [
+    "ĐIỂM YẾU", "DIEM YEU", "HẠN CHẾ", "HAN CHE",
+    "NHƯỢC ĐIỂM", "NHUOC DIEM", "ĐIỂM HẠN CHẾ", "DIEM HAN CHE",
+    "4. HẠN CHẾ", "4 HAN CHE",
+  ] },
+  { key: "moi_truong", labels: [
+    "MÔI TRƯỜNG", "MOI TRUONG",
+    "MÔI TRƯỜNG LÀM VIỆC PHÙ HỢP", "MOI TRUONG LAM VIEC PHU HOP",
+    "MÔI TRƯỜNG PHÙ HỢP", "MOI TRUONG PHU HOP",
+    "5. MÔI TRƯỜNG", "5 MOI TRUONG",
+  ] },
   {
     key: "nganh_nghe_tuong_ung",
     labels: [
@@ -157,9 +166,21 @@ const LABEL_TO_KEY = (() => {
 
 function normalizeHeading(input) {
   if (!input) return "";
-  return input
-    .replace(/^[\s\dIVXLCDM\.\)\-]+/gi, "")
-    .replace(/^[\s\d]+(\.[\s\d]+)*\.\s*/g, "")
+
+
+  let s = input.trim();
+  s = s
+    .replace(/^(\d+\.)+\s+/, "")          // "1. " / "1.2. "
+    .replace(/^(\d+\.)+\d+\s+/, "")       // "1.2.3 "
+    .replace(/^\(\d+\)\s+/, "")            // "(1) "
+    .replace(/^[IVXLCDM]+\.\s+/i, "")      // "I. " "II. " — requires trailing dot+space
+    .replace(/^\d+[)\]]\s+/, "")           // "1) "
+    .replace(/^[-\u2013\u2022]\s+/, "");   // "- " "• "
+
+  // Replace đ/Đ explicitly — NFD does not decompose these
+  s = s.replace(/[\u0111]/g, "d").replace(/[\u0110]/g, "D");
+
+  return s
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .replace(/[^\p{L}\p{N} ]/gu, " ")
@@ -306,12 +327,7 @@ function cleanNganhNghe(text) {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  // Step 1: Pre-process — join wrapped continuation lines.
-  // After stripping leading numbers, a continuation line is one that:
-  // - does NOT contain a major code like (7340101)
-  // - does NOT start with "Nghề nghiệp tương ứng"
-  // - is NOT a group header
-  // AND the previous line is a "jobs" line (we track state)
+
   const lines = [];
   let prevLineIsJobs = false; // true when previous line was jobs content
 
@@ -508,10 +524,7 @@ async function extractSectionsWithAI(text, mbtiType) {
   }
 }
 
-/**
- * GET /api/ai-consultation?mbtiType=INTJ
- * Fetches MBTI personality document from MinIO and returns extracted text.
- */
+
 app.get("/api/ai-consultation", async (req, res) => {
   try {
     const mbtiType = (req.query.mbtiType || "").toUpperCase();
@@ -569,7 +582,6 @@ app.get("/api/ai-consultation", async (req, res) => {
   }
 });
 
-// Health check
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "MBTI-NEU API" }));
 
 export default app;
