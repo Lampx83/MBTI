@@ -431,33 +431,6 @@ function extractFallbackSections(rawText: string, keys: string[]): Record<string
 
 // ─── Octagon Diagram ──────────────────────────────────────────────────────────
 
-const DIMENSION_LABELS: {
-  key: "EI" | "SN" | "TF" | "JP";
-  left: { letter: string; label: string };
-  right: { letter: string; label: string };
-}[] = [
-  {
-    key: "EI",
-    left: { letter: "E", label: "Hướng ngoại" },
-    right: { letter: "I", label: "Hướng nội" },
-  },
-  {
-    key: "SN",
-    left: { letter: "S", label: "Thực tế" },
-    right: { letter: "N", label: "Trực giác" },
-  },
-  {
-    key: "TF",
-    left: { letter: "T", label: "Lý trí" },
-    right: { letter: "F", label: "Cảm xúc" },
-  },
-  {
-    key: "JP",
-    left: { letter: "J", label: "Nguyên tắc" },
-    right: { letter: "P", label: "Linh hoạt" },
-  },
-];
-
 /**
  * scoreToPct: raw score → 0..1 percentage for each pole.
  * Uses a "soft max" so typical scores look visually significant on the radar.
@@ -558,16 +531,6 @@ const RADAR_AXES: {
   { vertexIdx: 7, letter: "J", label: "Nguyên tắc",  scoreKey: "JP", positiveDir: true  },
 ];
 
-const LEGEND_ROWS: {
-  scoreKey: "EI" | "SN" | "TF" | "JP";
-  left: { letter: string; label: string };
-  right: { letter: string; label: string };
-}[] = [
-  { scoreKey: "EI", left: { letter: "E", label: "Hướng ngoại" }, right: { letter: "I", label: "Hướng nội" } },
-  { scoreKey: "SN", left: { letter: "S", label: "Thực tế" },     right: { letter: "N", label: "Trực giác" } },
-  { scoreKey: "TF", left: { letter: "T", label: "Lý trí" },      right: { letter: "F", label: "Cảm xúc" } },
-  { scoreKey: "JP", left: { letter: "J", label: "Nguyên tắc" },  right: { letter: "P", label: "Linh hoạt" } },
-];
 
 function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
   const [animPct, setAnimPct] = useState(0);
@@ -596,6 +559,14 @@ function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
   const cy     = SIZE / 2;
   const R      = SIZE / 2 - 50; // radius of outer ring (leaves room for labels)
 
+  // dataScale: zoom the polygon when scores are weak, so the shape fills the grid.
+  // Grid rings, spokes, labels are always drawn at R — only polygon points are scaled.
+  const maxRawPct = Math.max(
+    ...Object.values(scores).map((s) => Math.min(Math.abs(s ?? 0) / (15 * 0.8), 1)),
+    0.01,
+  );
+  const dataScale = Math.min(1 / maxRawPct, 2.5);
+
   function deg2rad(d: number) { return (d * Math.PI) / 180; }
   function axisPoint(angleDeg: number, r: number) {
     return {
@@ -623,9 +594,9 @@ function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
   const dataPoints = axisOrder.map(({ key, angleDeg, isPos }) => {
     const raw = scores[key] ?? 0;
     const { pct, dominant } = scoreToPct(raw);
-    const effectivePct = pct * animPct;
+    const effectivePct = pct * animPct * dataScale;
     const isActive = (isPos && dominant === "left") || (!isPos && dominant === "right");
-    const r = isActive ? effectivePct * R : 0;
+    const r = isActive ? Math.min(effectivePct * R, R) : 0;
     return { ...axisPoint(angleDeg, r), isActive };
   });
 
@@ -724,15 +695,31 @@ function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
         style={{ overflow: "visible" }}
         aria-label="Biểu đồ radar MBTI"
       >
-        {/* Grid rings: 33%, 66%, 100% */}
-        {[0.33, 0.66, 1.0].map((s) => (
+        {/* Grid rings: 33%, 66% dashed + 100% solid outer frame */}
+        {[0.33, 0.66].map((s) => (
           <polygon key={s} points={octPts(s)}
             fill="none"
-            stroke={s === 1.0 ? "#cbd5e1" : "#e2e8f0"}
-            strokeWidth={s === 1.0 ? 1.5 : 0.8}
-            strokeDasharray={s < 1.0 ? "4 3" : undefined}
+            stroke="#e2e8f0"
+            strokeWidth={0.8}
+            strokeDasharray="4 3"
           />
         ))}
+        <polygon points={octPts(1.0)}
+          fill="none"
+          stroke="#cbd5e1"
+          strokeWidth={1.5}
+        />
+
+        {/* Outer ring vertex dots */}
+        {Array.from({ length: OCT_N }, (_, i) => {
+          const a = (Math.PI / 4) * i - Math.PI / 2;
+          return (
+            <circle key={i}
+              cx={cx + R * Math.cos(a)} cy={cy + R * Math.sin(a)}
+              r="3" fill="white" stroke="#cbd5e1" strokeWidth="1.5"
+            />
+          );
+        })}
 
         {/* 8 axis spokes */}
         {Array.from({ length: OCT_N }, (_, i) => {
@@ -746,16 +733,7 @@ function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
           );
         })}
 
-        {/* Outer ring vertex dots */}
-        {Array.from({ length: OCT_N }, (_, i) => {
-          const a = (Math.PI / 4) * i - Math.PI / 2;
-          return (
-            <circle key={i}
-              cx={cx + R * Math.cos(a)} cy={cy + R * Math.sin(a)}
-              r="3" fill="white" stroke="#cbd5e1" strokeWidth="1.5"
-            />
-          );
-        })}
+
 
         {/* Radar polygon — active tips only, routed through centre when needed */}
         {quadPoly && (
@@ -802,52 +780,6 @@ function OctagonDiagram({ scores }: { scores: Record<string, number> }) {
         })}
       </svg>
 
-      {/* ── Legend bars (true %, not boosted) ── */}
-      <div className="w-full space-y-3">
-        {LEGEND_ROWS.map(({ scoreKey, left, right }) => {
-          const raw = scores[scoreKey] ?? 0;
-          const { rawPct, dominant } = scoreToPct(raw);
-          const isLeft  = dominant === "left";
-          const isRight = dominant === "right";
-          const activeLetter = isLeft ? left.letter : isRight ? right.letter : "–";
-          const displayPct   = Math.round(rawPct * 100);
-          const barW         = rawPct * animPct * 100;
-
-          return (
-            <div key={scoreKey}>
-              <div className="mb-1 flex items-center justify-between text-xs">
-                <span className={`flex items-center gap-1.5 font-medium ${isLeft ? "text-indigo-700" : "text-slate-400"}`}>
-                  <span className={`inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold
-                    ${isLeft ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-400"}`}>
-                    {left.letter}
-                  </span>
-                  {left.label}
-                </span>
-                <span className="px-2 text-[11px] text-slate-500">
-                  {dominant !== "neutral" ? `${activeLetter} · ${displayPct}%` : "50/50"}
-                </span>
-                <span className={`flex items-center gap-1.5 font-medium ${isRight ? "text-sky-600" : "text-slate-400"}`}>
-                  {right.label}
-                  <span className={`inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold
-                    ${isRight ? "bg-sky-100 text-sky-600" : "bg-slate-100 text-slate-400"}`}>
-                    {right.letter}
-                  </span>
-                </span>
-              </div>
-              <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
-                {isLeft && (
-                  <div className="absolute left-0 top-0 h-full rounded-full bg-indigo-400"
-                    style={{ width: `${barW}%` }} />
-                )}
-                {isRight && (
-                  <div className="absolute right-0 top-0 h-full rounded-full bg-sky-400"
-                    style={{ width: `${barW}%` }} />
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
