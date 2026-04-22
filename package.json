@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:basepath": "cross-env EMBED_BASE_PATH=/tuyen-sinh/embed/mbti-career-neu/ vite build",
+    "build:basepath": "cross-env EMBED_BASE_PATH=/tuyen-sinh/embed/mbti-career-neu/ BUILD_OUT_DIR=dist-base vite build",
     "pack": "npm run build && node scripts/pack.mjs",
-    "pack:basepath": "npm run build:basepath && node scripts/pack.mjs",
+    "pack:basepath": "npm run build:basepath && cross-env PACK_BASEPATH=1 node scripts/pack.mjs",
     "pack:full": "npm run build && node scripts/pack-full.mjs",
     "seed:mbti-types": "node scripts/seed-mbti-types.mjs",
     "start": "node server.js",

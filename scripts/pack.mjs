@@ -9,9 +9,12 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const buildDir = path.join(root, process.env.PACK_SOURCE || "dist");
-const outDir = path.join(root, "dist");
-const outZip = path.join(outDir, "mbti-career-neu.zip");
+const isBasepathPack = process.env.PACK_BASEPATH === "1" || process.env.PACK_BASEPATH === "true";
+const buildDir = path.join(root, process.env.PACK_SOURCE || (isBasepathPack ? "dist-base" : "dist"));
+const outDir = path.join(root, process.env.PACK_OUT_DIR || "dist");
+const outZipName =
+  process.env.PACK_ZIP_NAME || (isBasepathPack ? "mbti-career-neu-basepath.zip" : "mbti-career-neu.zip");
+const outZip = path.join(outDir, outZipName);
 
 function addDirToZip(zip, localDir, zipPrefix = "") {
   if (!fs.existsSync(localDir)) return;
@@ -36,7 +39,7 @@ async function main() {
   }
   const indexPath = path.join(buildDir, "index.html");
   if (!fs.existsSync(indexPath)) {
-    console.error("Chưa có thư mục build. Chạy: npm run build");
+    console.error(`Chưa có thư mục build (${path.relative(root, buildDir)}). Chạy: npm run build`);
     process.exit(1);
   }
 
