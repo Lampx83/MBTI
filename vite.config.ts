@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  base: "./",
+  // Default to relative paths for normal deployments.
+  // When embedding under a sub-path, set EMBED_BASE_PATH (e.g. /tuyen-sinh/embed/mbti-career-neu/).
+  base: (process.env.EMBED_BASE_PATH ?? "./").replace(/\/?$/, "/"),
   plugins: [react(), tailwindcss()],
   server: {
     port: 3001,
