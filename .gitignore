@@ -5,6 +5,7 @@
 ## Dependencies / builds
 node_modules/
 dist/
+dist-base/
 build/
 .next/
 .vercel/
