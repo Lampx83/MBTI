@@ -74,5 +74,3 @@ INSERT INTO mbti_types (id, code) VALUES
   (15, 'ESTP'),
   (16, 'ESFP')
 ON CONFLICT (code) DO NOTHING;
-
-SELECT setval(pg_get_serial_sequence('mbti_types', 'id'), (SELECT COALESCE(MAX(id), 1) FROM mbti_types));
