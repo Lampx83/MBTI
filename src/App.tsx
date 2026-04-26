@@ -224,7 +224,7 @@ function Intro({
               />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Nhập mã hồ sơ</span>
+              <span className="text-sm font-medium text-slate-700">Nhập CCCD, Số báo danh hoặc Mã hồ sơ</span>
               <input
                 value={userProfileId}
                 onChange={(e) => onChangeUserProfileId(e.target.value)}
