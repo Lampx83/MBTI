@@ -53,3 +53,7 @@ export const OPENAI_API_KEY = getEnv("OPENAI_API_KEY");
 export const OPENAI_MODEL = getEnv("OPENAI_MODEL", "gpt-4o-mini");
 export const OLLAMA_BASE_URL = getEnv("OLLAMA_BASE_URL").replace(/\/$/, "");
 export const OLLAMA_MODEL = getEnv("OLLAMA_MODEL", "qwen3:8b");
+
+// Optional: gọi service tư vấn bên ngoài (vd Vercel) từ backend.
+// Nếu set biến này, GET /api/ai-consultation sẽ ưu tiên fetch JSON từ external thay vì đọc DOCX từ MinIO.
+export const EXTERNAL_AI_BASE = getEnv("EXTERNAL_AI_BASE").replace(/\/$/, "");

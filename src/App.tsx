@@ -1428,18 +1428,32 @@ function Result({
       setConsultationText(null);
       setConsultationSections(null);
       try {
-        const url =
-          `${AI_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}` +
+        // Preferred path: call our backend so it can persist consultation to DB.
+        // Best-effort fallback: if backend fails, call AI_BASE directly (e.g. Vercel)
+        // to still show consultation on UI.
+        const backendUrl =
+          `${API_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}` +
           (sessionId ? `&sessionId=${sessionId}` : "");
-        // Vercel returns `Access-Control-Allow-Origin: *` (no credentials),
-        // so we must not send cookies/credentials for cross-site AI calls.
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(
-            res.status === 404 ? "Chưa có dữ liệu tư vấn cho tính cách này." : "Tải tư vấn thất bại.",
-          );
+
+        let data: any = null;
+        try {
+          const res = await fetch(backendUrl, { credentials: "include" });
+          if (!res.ok) {
+            throw new Error(
+              res.status === 404 ? "Chưa có dữ liệu tư vấn cho tính cách này." : "Tải tư vấn thất bại.",
+            );
+          }
+          data = await res.json();
+        } catch (backendErr) {
+          // Fallback (no credentials for cross-site AI calls).
+          const fallbackUrl = `${AI_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}`;
+          const res = await fetch(fallbackUrl);
+          if (!res.ok) {
+            throw backendErr;
+          }
+          data = await res.json();
         }
-        const data = await res.json();
+
         const rawText: string = data.consultation ?? "";
         const sections = data.sections && typeof data.sections === "object" ? data.sections : null;
         const sectionsForStorage =

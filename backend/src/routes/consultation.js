@@ -9,6 +9,7 @@ import { fetchPersonalityDoc, isNotFoundError } from "../lib/minio.js";
 import { extractSectionsByHeadings, normalizeSections } from "../lib/sections.js";
 import { extractSectionsWithAI, resolveAIProvider } from "../lib/ai.js";
 import { query } from "../db.js";
+import { EXTERNAL_AI_BASE } from "../env.js";
 
 export const MBTI_TYPES = [
   "INTJ", "INTP", "ENTJ", "ENTP",
@@ -35,6 +36,36 @@ async function saveConsultation(sessionId, mbtiType, provider, consultation, sec
     );
   } catch (err) {
     console.error("[Consultation] save ai_consultations failed:", err?.message || err);
+  }
+}
+
+function withTimeout(ms) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(new Error("timeout")), ms);
+  return { signal: ac.signal, clear: () => clearTimeout(t) };
+}
+
+async function fetchExternalConsultation(mbtiType) {
+  if (!EXTERNAL_AI_BASE) return null;
+  if (typeof fetch !== "function") {
+    throw new Error("Runtime does not support fetch(); cannot call external AI.");
+  }
+
+  const url = `${EXTERNAL_AI_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}`;
+  const { signal, clear } = withTimeout(15000);
+  try {
+    const resp = await fetch(url, { method: "GET", signal });
+    const text = await resp.text().catch(() => "");
+    if (!resp.ok) {
+      throw new Error(`External AI failed (HTTP ${resp.status}): ${text || "no body"}`);
+    }
+    const data = text ? JSON.parse(text) : null;
+    if (!data || typeof data !== "object") {
+      throw new Error("External AI returned invalid JSON");
+    }
+    return data;
+  } finally {
+    clear();
   }
 }
 
@@ -177,6 +208,52 @@ export async function getConsultation(req, res) {
     const sessionIdRaw = req.query.sessionId;
     const sessionId = sessionIdRaw && Number.isFinite(Number(sessionIdRaw)) ? Number(sessionIdRaw) : null;
 
+    // If configured, prefer external JSON provider (e.g. Vercel), then persist to DB.
+    if (EXTERNAL_AI_BASE) {
+      const ext = await fetchExternalConsultation(mbtiType);
+
+      const consultation =
+        typeof ext?.consultation === "string" && ext.consultation.trim() ? ext.consultation : "";
+      const sections =
+        ext?.sections && typeof ext.sections === "object" ? ext.sections : null;
+      const sectionsForStorage =
+        ext?.sections_for_storage && typeof ext.sections_for_storage === "object"
+          ? ext.sections_for_storage
+          : ext?.sectionsForStorage && typeof ext.sectionsForStorage === "object"
+            ? ext.sectionsForStorage
+            : sections;
+
+      const provider =
+        (typeof ext?.sections_source === "string" && ext.sections_source.trim()) ||
+        (typeof ext?.provider === "string" && ext.provider.trim()) ||
+        "vercel";
+      const objectName =
+        (typeof ext?.objectName === "string" && ext.objectName.trim()) ||
+        (typeof ext?.object_name === "string" && ext.object_name.trim()) ||
+        null;
+
+      // Persist if session exists; do not fail the user-facing response if persistence fails.
+      if (sessionId) {
+        try {
+          const exists = await ensureSessionExists(sessionId);
+          if (exists) {
+            await putConsultation(sessionId, mbtiType, provider, consultation || null, sectionsForStorage, objectName);
+          }
+        } catch (err) {
+          console.error("[Consultation] external persist failed:", err?.message || err);
+        }
+      }
+
+      return res.json({
+        mbtiType,
+        consultation,
+        sections,
+        sections_for_storage: sectionsForStorage || null,
+        sections_source: provider,
+        objectName: objectName || "",
+      });
+    }
+
     let personalityData = "";
     let objectNameUsed = "";
 
@@ -209,6 +286,8 @@ export async function getConsultation(req, res) {
     const sections = aiSections || heuristicSections;
     const sourceTag = aiSections ? `ai:${provider}` : heuristicSections ? "heuristic" : "none";
 
+    // Keep existing behavior: attempt to insert a row (best-effort).
+    // NOTE: In external-AI mode we use putConsultation (update latest) to avoid row growth.
     await saveConsultation(sessionId, mbtiType, sourceTag, text, sections, objectNameUsed);
 
     return res.json({
