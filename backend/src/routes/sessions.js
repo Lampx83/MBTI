@@ -29,7 +29,9 @@ function normalizeAnswersInput(answers) {
 export async function postSession(req, res) {
   // Optional mode: save AI consultation (no session/answers creation).
   // This is designed to work with Portal allowlists that only forward POST /api/mbti/sessions.
-  const mode = typeof req.body?.mode === "string" ? req.body.mode.trim() : "";
+  const modeFromBody = typeof req.body?.mode === "string" ? req.body.mode.trim() : "";
+  const modeFromQuery = typeof req.query?.mode === "string" ? req.query.mode.trim() : "";
+  const mode = modeFromQuery || modeFromBody;
   const looksLikeAiSave =
     mode === "ai_save" ||
     // Some proxies/framework layers may drop/transform `mode` — fall back to shape-based detection.
@@ -39,6 +41,16 @@ export async function postSession(req, res) {
       (req.body?.sections_for_storage !== undefined || req.body?.sections !== undefined || req.body?.consultation !== undefined));
 
   if (looksLikeAiSave) {
+    // Keep compatibility with strict clients/proxies that expect these fields to exist
+    // (even though we don't create a new session in ai_save mode).
+    const user_name = typeof req.body?.user_name === "string" ? req.body.user_name.trim() : "";
+    const user_profile_id =
+      typeof req.body?.user_profile_id === "string" ? req.body.user_profile_id.trim() : "";
+    const answers = normalizeAnswersInput(req.body?.answers);
+    if (!user_name) return res.status(400).json({ error: "user_name bat buoc" });
+    if (!user_profile_id) return res.status(400).json({ error: "user_profile_id bat buoc" });
+    if (!answers) return res.status(400).json({ error: "answers khong hop le" });
+
     const sessionId = Number(req.body?.session_id);
     if (!Number.isFinite(sessionId) || sessionId <= 0) {
       return res.status(400).json({ error: "session_id khong hop le" });
