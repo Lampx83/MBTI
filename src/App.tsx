@@ -1442,6 +1442,31 @@ function Result({
         const data = await res.json();
         const rawText: string = data.consultation ?? "";
         const sections = data.sections && typeof data.sections === "object" ? data.sections : null;
+        const sectionsForStorage =
+          data.sections_for_storage && typeof data.sections_for_storage === "object"
+            ? data.sections_for_storage
+            : data.sectionsForStorage && typeof data.sectionsForStorage === "object"
+              ? data.sectionsForStorage
+              : sections;
+
+        // Best-effort persist: send the Vercel payload back to Portal backend for storage.
+        // UI should still work even if persistence fails.
+        if (sessionId) {
+          fetch(`${API_BASE}/api/mbti/sessions/${sessionId}/ai`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              provider: data.sections_source || data.provider || "vercel",
+              mbtiType: mbtiType,
+              consultation: rawText || null,
+              objectName: data.objectName || data.object_name || null,
+              sections_for_storage: sectionsForStorage,
+            }),
+          }).catch(() => {
+            // ignore persistence errors – consultation is still shown to the user
+          });
+        }
 
         let normalizedEntries = sections
           ? Object.entries(sections).filter(([, value]) => sectionHasContent(value))

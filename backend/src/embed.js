@@ -5,7 +5,7 @@
 import cors from 'cors';
 import express from "express";
 import { getConsultation, postConsultationSave } from "./routes/consultation.js";
-import { postSession } from "./routes/sessions.js";
+import { postSession, postSessionAI } from "./routes/sessions.js";
 import {
   postAdminLogin,
   getAdminStats,
@@ -51,6 +51,7 @@ export function createEmbedRouter() {
   router.get("/api/ai-consultation", getConsultation);
   router.post("/api/ai-consultation/save", postConsultationSave);
   router.post("/api/mbti/sessions", postSession);
+  router.post("/api/mbti/sessions/:id/ai", postSessionAI);
 
   router.post("/api/admin/login", postAdminLogin);
   router.get("/api/admin/stats", requireAdmin, getAdminStats);
