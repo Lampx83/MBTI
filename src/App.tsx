@@ -3,25 +3,12 @@ import { MBTI_QUESTIONS, MBTI_TYPE_INFO } from "./mbti-data";
 import type { MBTIQuestion } from "./mbti-data";
 import { computeMBTI, computeMBTIScores, type AnswerRecord } from "./mbti-score";
 import AdminPage from "./admin";
+import { API_BASE, AI_BASE } from "./config/env";
 
 type Step = "intro" | "quiz" | "result" | "admin";
 type SectionValue = string | string[];
 
 const totalQuestions = MBTI_QUESTIONS.length;
-// Priority:
-//  1. VITE_API_BASE (build-time) — cho deploy backend tách riêng (vd https://research.neu.edu.vn/mbti-api).
-//  2. window.__WRITE_API_BASE__ (Portal inject runtime) — chỉ dùng nếu Portal proxy hoạt động.
-//  3. "" — same-origin (dev với vite proxy /api → :4000, hoặc backend chung host với frontend).
-function getApiBase(): string {
-  const fromEnv = (import.meta.env.VITE_API_BASE ?? "").trim();
-  if (fromEnv) return fromEnv.replace(/\/+$/, "");
-  if (typeof window !== "undefined") {
-    const fromPortal = (window as { __WRITE_API_BASE__?: string }).__WRITE_API_BASE__?.trim();
-    if (fromPortal) return fromPortal.replace(/\/+$/, "");
-  }
-  return "";
-}
-const API_BASE = getApiBase();
 const ADMIN_HASH = "#/admin";
 // Khi build với pack:basepath, import.meta.env.BASE_URL = "/tuyen-sinh/embed/mbti-career-neu/"
 // Bản pack thường (relative "./"), BASE_URL = "./" → dùng "" để rút về relative.
@@ -1442,9 +1429,11 @@ function Result({
       setConsultationSections(null);
       try {
         const url =
-          `${API_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}` +
+          `${AI_BASE}/api/ai-consultation?mbtiType=${encodeURIComponent(mbtiType)}` +
           (sessionId ? `&sessionId=${sessionId}` : "");
-        const res = await fetch(url, { credentials: "include" });
+        // Vercel returns `Access-Control-Allow-Origin: *` (no credentials),
+        // so we must not send cookies/credentials for cross-site AI calls.
+        const res = await fetch(url);
         if (!res.ok) {
           throw new Error(
             res.status === 404 ? "Chưa có dữ liệu tư vấn cho tính cách này." : "Tải tư vấn thất bại.",
